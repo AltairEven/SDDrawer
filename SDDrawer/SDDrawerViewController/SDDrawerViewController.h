@@ -8,6 +8,21 @@
 
 #import <UIKit/UIKit.h>
 
+@class SDDrawerViewController;
+
+@protocol SDDrawerViewControllerDelegate <NSObject>
+
+@optional
+/**
+ *  当前打开偏移量的回调
+ *
+ *  @param controller SDDrawerViewController
+ *  @param percent    当前打开的偏移量占比0~1，0表示未打开，1表示全部打开
+ */
+- (void)drawerViewController:(SDDrawerViewController *)controller openedWithOffsetRatio:(CGFloat)ratio;
+
+@end
+
 @interface SDDrawerViewController : UIViewController
 /**
  *  背景视图，默认nil
@@ -20,15 +35,15 @@
 /**
  *  抽屉打开后显示的百分比，默认0.8
  */
-@property (nonatomic, assign) CGFloat openPercent;
-/**
- *  抽屉打开后，内容视图显示比例，默认1
- */
-@property (nonatomic, assign) CGFloat contentScale;
+@property (nonatomic, assign) CGFloat openRatio;
 /**
  *  当前抽屉打开状态
  */
 @property (nonatomic, readonly) BOOL isClosed;
+/**
+ *  SDDrawerViewControllerDelegate
+ */
+@property (nonatomic, weak) id<SDDrawerViewControllerDelegate> delegate;
 
 /**
  *  通过内容试图控制器初始化的方法
@@ -53,14 +68,50 @@
 
 @end
 
+/**
+ *  提供滑动开启或者关闭
+ */
+@interface SDDrawerViewController (GestureControl)
+/**
+ *  滑动手势触发后，自动展开全部的临界值，按照屏幕宽度的百分比，默认0.2
+ */
+@property (nonatomic, assign) CGFloat autoSlideToOpenThreshold;
+/**
+ *  滑动手势触发后，自动关闭的临界值，按照屏幕宽度的百分比，默认0.1
+ */
+@property (nonatomic, assign) CGFloat autoSlideToCloseThreshold;
+/**
+ *  滑动抽屉
+ *
+ *  @param xOffset 距离原始关闭状态的X轴偏移量
+ */
+- (void)slideDrawerWithXOffset:(CGFloat)xOffset;
+
+@end
 
 /**
- *  UIViewController针对SDDrawerViewController的扩展
+ *  提供缩放和位移
  */
-@interface UIViewController (SDDrawer)
+@interface SDDrawerViewController (OffsetAndShape)
+/**
+ *  抽屉打开后，内容视图显示比例，默认1
+ */
+@property (nonatomic, assign) CGFloat contentScale;
+
+@end
+
+
+
+@interface UIViewController (SDDrawer) <UIGestureRecognizerDelegate>
 /**
  *  管理该UIViewController的DrawerViewController
  */
 @property (nonatomic, weak) SDDrawerViewController *drawerViewController;
+/**
+ *  激活或关闭抽屉滑动的手势
+ *
+ *  @param activated 激活或关闭
+ */
+- (void)activateSlideGesture:(BOOL)activated;
 
 @end

@@ -7,12 +7,12 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "SDDrawerViewController.h"
+//#import "SDDrawerViewController.h"
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
-@property (nonatomic, strong) SDDrawerViewController *drawerViewController;
+//@property (nonatomic, strong) SDDrawerViewController *drawerViewController;
 
 @end
 
