@@ -9,6 +9,12 @@
 #import "SDDrawerViewController.h"
 #import <objc/runtime.h>
 
+#define DEFAULT_OPEN_RATIO (0.6)
+#define DEFAULT_OPEN_SLIDETHRESHOLD (0.2)
+#define DEFAULT_CLOSE_SLIDETHRESHOLD (0.1)
+#define DEFAULT_CONTENT_SCALE (CGVectorMake(1, 1))
+#define DEFAULT_DRAWER_CONTENTOFFSET (CGVectorMake(0, 0))
+
 @interface SDDrawerViewController ()
 
 @property (nonatomic, assign) CGFloat animationDuration;
@@ -44,7 +50,14 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view from its nib.
-    [self initialization];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    //异步初始化，必须在viewDidAppear后，否则frame无法修改
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self initialization];
+    });
 }
 
 #pragma mark Setter & Getter
@@ -63,8 +76,8 @@
 - (void)setBackgroundView:(UIView *)backgroundView {
     _backgroundView = backgroundView;
     if (_backgroundView) {
-        [self.view addSubview: _backgroundView];
-        [self.view sendSubviewToBack:_backgroundView];
+        [self.hostWindow addSubview: _backgroundView];
+        [self.hostWindow sendSubviewToBack:_backgroundView];
     }
 }
 
@@ -74,14 +87,9 @@
 #pragma mark Private methods
 
 - (void)initialization {
-    self.openRatio = 0.8;
-    self.autoSlideToOpenThreshold = 0.2;
-    self.autoSlideToCloseThreshold = 0.1;
-    self.contentScale = 1.0;
-    
-    self.animationDuration = 0.3;
-    
-    [self setupViews];;
+    [self setupViews];
+    self.animationDuration = 0.2;
+    self.openRatio = DEFAULT_OPEN_RATIO;
 }
 
 
@@ -137,17 +145,32 @@ static const void *SDDrawerOpenRatioKey = @"SDDrawerOpenRatioKey";
 static const void *SDDrawerIsOpenedKey = @"SDDrawerIsOpenedKey";
 static const void *SDDrawerOpenSlideKey = @"SDDrawerOpenSlideKey";
 static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
+static const void *SDDrawerContentScaleKey = @"SDDrawerContentScaleKey";
+static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
 
 #pragma mark Setter & Getter
 
 - (void)setOpenRatio:(CGFloat)openRatio {
+    if (openRatio < 0) {
+        openRatio = 0;
+    }
+    if (openRatio > 1) {
+        openRatio = 1;
+    }
     objc_setAssociatedObject(self, SDDrawerOpenRatioKey, [NSNumber numberWithFloat:openRatio], OBJC_ASSOCIATION_COPY_NONATOMIC);
+    if (self.view) {
+        //根据open ratio和scale来计算drawer内容的宽度
+        CGFloat scaleOffset = (1 - self.contentScale.dx) * self.contentViewController.view.window.bounds.size.width / 2;
+        CGFloat width = self.view.frame.size.width * openRatio + scaleOffset;
+        CGRect frame = CGRectMake(self.view.frame.origin.x, self.view.frame.origin.y, width, [UIScreen mainScreen].bounds.size.height);
+        [self.view setFrame:frame];
+    }
 }
 
 - (CGFloat)openRatio {
     NSNumber *ratio = objc_getAssociatedObject(self, SDDrawerOpenRatioKey);
     if (!ratio) {
-        return 0;
+        return DEFAULT_OPEN_RATIO;
     }
     return [ratio floatValue];
 }
@@ -165,13 +188,19 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
 }
 
 - (void)setAutoSlideToOpenThreshold:(CGFloat)autoSlideToOpenThreshold {
+    if (autoSlideToOpenThreshold < 0) {
+        autoSlideToOpenThreshold = 1;
+    }
+    if (autoSlideToOpenThreshold > 1) {
+        autoSlideToOpenThreshold = 1;
+    }
     objc_setAssociatedObject(self, SDDrawerOpenSlideKey, [NSNumber numberWithFloat:autoSlideToOpenThreshold], OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
 - (CGFloat)autoSlideToOpenThreshold {
     NSNumber *threshold = objc_getAssociatedObject(self, SDDrawerOpenSlideKey);
     if (!threshold) {
-        return 0;
+        return DEFAULT_OPEN_SLIDETHRESHOLD;
     }
     return [threshold floatValue];
 }
@@ -183,39 +212,119 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
 - (CGFloat)autoSlideToCloseThreshold {
     NSNumber *threshold = objc_getAssociatedObject(self, SDDrawerCloseSlideKey);
     if (!threshold) {
-        return 0;
+        return DEFAULT_CLOSE_SLIDETHRESHOLD;
     }
     return [threshold floatValue];
 }
 
+- (void)setContentScale:(CGVector)contentScale {
+    if (contentScale.dx <= 0) {
+        contentScale.dx = 0.1;
+    }
+    if (contentScale.dy <= 0) {
+        contentScale.dy = 0.1;
+    }
+    objc_setAssociatedObject(self, SDDrawerContentScaleKey, [NSValue valueWithCGVector:contentScale], OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (CGVector)contentScale {
+    NSValue *scale = objc_getAssociatedObject(self, SDDrawerContentScaleKey);
+    if (!scale) {
+        return DEFAULT_CONTENT_SCALE;
+    }
+    return [scale CGVectorValue];
+}
+
+- (void)setDrawerOffset:(CGVector)drawerOffset {
+    objc_setAssociatedObject(self, SDDrawerOffsetKey, [NSValue valueWithCGVector:drawerOffset], OBJC_ASSOCIATION_COPY_NONATOMIC);
+}
+
+- (CGVector)drawerOffset {
+    NSValue *offset = objc_getAssociatedObject(self, SDDrawerOffsetKey);
+    if (!offset) {
+        return DEFAULT_DRAWER_CONTENTOFFSET;
+    }
+    return [offset CGVectorValue];
+}
+
 #pragma mark Open & Close
 
+- (NSTimeInterval)currentAnimationDuration {
+    CGFloat originalCenterX = CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2;
+    CGFloat xOffset = self.contentViewController.view.window.center.x - originalCenterX;
+    CGFloat totalOffset = CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+    CGFloat ratio = xOffset / totalOffset;
+    if (ratio < 0) {
+        ratio = 0;
+    }
+    if (ratio > 1) {
+        ratio = 1;
+    }
+    
+    //根据当前滑动的进度，计算动画执行时间
+    CGFloat durantion = self.animationDuration;
+    if ([self isOpened]) {
+        durantion = durantion * ratio;
+    } else {
+        durantion = durantion * (1 - ratio);
+    }
+    return durantion;
+}
+
+- (void)resetDrawerOffset:(BOOL)open {
+    if (open) {
+        [self.view setCenter:CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2)];
+        self.view.transform = CGAffineTransformMakeScale(1, 1);
+    } else {
+        CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + self.drawerOffset.dx, self.view.bounds.size.height / 2 + self.drawerOffset.dy);
+        [self.view setCenter:centerPoint];
+        self.view.transform = CGAffineTransformMakeScale(self.contentScale.dx, self.contentScale.dy);
+    }
+}
+
+- (void)resetContent:(BOOL)open {
+    if (open) {
+        CGRect screenBounds = [UIScreen mainScreen].bounds;
+        CGFloat drawerShowingWidth = screenBounds.size.width * self.openRatio;
+        CGPoint centerPoint = CGPointMake(screenBounds.size.width / 2 + drawerShowingWidth, screenBounds.size.height / 2);
+        [self.contentViewController.view.window setCenter:centerPoint];
+        self.contentViewController.view.window.transform = CGAffineTransformMakeScale(self.contentScale.dx, self.contentScale.dy);
+    } else {
+        [self.contentViewController.view.window setCenter:CGPointMake([UIScreen mainScreen].bounds.size.width / 2, [UIScreen mainScreen].bounds.size.height / 2)];
+        self.contentViewController.view.window.transform = CGAffineTransformMakeScale(1, 1);
+    }
+}
+
 - (void)open:(BOOL)animated {
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGFloat drawerShowingWidth = screenBounds.size.width * self.openRatio;
-    CGPoint centerPoint = CGPointMake(screenBounds.size.width / 2 + drawerShowingWidth, screenBounds.size.height / 2);
-    //root vc animate to right
     if (animated) {
-        [UIView animateWithDuration:self.animationDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            [self.contentViewController.view.window setCenter:centerPoint];
+        //animated
+        NSTimeInterval duration = [self currentAnimationDuration];
+        [UIView animateWithDuration:duration delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+            [self resetDrawerOffset:YES];
+            [self resetContent:YES];
         } completion:^(BOOL finished) {
             [self openFinished];
         }];
     } else {
-        [self.contentViewController.view.window setCenter:centerPoint];
+        //no animated
+        [self resetDrawerOffset:YES];
+        [self resetContent:YES];
         [self openFinished];
     }
 }
 
 - (void)close:(BOOL)animated {
     if (animated) {
-        [UIView animateWithDuration:self.animationDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            [self.contentViewController.view.window setFrame:[UIScreen mainScreen].bounds];
+        NSTimeInterval duration = [self currentAnimationDuration];
+        [UIView animateWithDuration:duration delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+            [self resetDrawerOffset:NO];
+            [self resetContent:NO];
         } completion:^(BOOL finished) {
             [self closeFinished];
         }];
     } else {
-        [self.contentViewController.view.window setFrame:[UIScreen mainScreen].bounds];
+        [self resetDrawerOffset:NO];
+        [self resetContent:NO];
         [self closeFinished];
     }
 }
@@ -260,26 +369,39 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
     //最大最小区间
     CGFloat minOffset = 0;
     CGFloat maxOffset = 0;
+    CGFloat revisedOffset = translation.x;
     CGFloat centerX = 0;
     if ([self isOpened]) {
         //最小偏移量
         minOffset = 0 - CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+        if (revisedOffset < minOffset) {
+            revisedOffset = minOffset;
+        } else if (revisedOffset > maxOffset) {
+            revisedOffset = maxOffset;
+        }
         //新的中心位置X值
-        centerX = CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 - minOffset + translation.x;
+        centerX = CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 - minOffset + revisedOffset;
     } else {
         //最大偏移量
         maxOffset = CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+        if (revisedOffset < minOffset) {
+            revisedOffset = minOffset;
+        } else if (revisedOffset > maxOffset) {
+            revisedOffset = maxOffset;
+        }
         //新的中心位置X值
-        centerX =  CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 + translation.x;
+        centerX =  CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 + revisedOffset;
     }
+    
     if (sender.state == UIGestureRecognizerStateEnded) {
+        //手势结束
         CGFloat thresholdX = 0;
         if ([self isOpened]) {
             thresholdX = self.autoSlideToCloseThreshold * CGRectGetWidth([UIScreen mainScreen].bounds);
         } else {
             thresholdX = self.autoSlideToOpenThreshold * CGRectGetWidth([UIScreen mainScreen].bounds);
         }
-        if (translation.x >= thresholdX) {
+        if (revisedOffset >= thresholdX) {
             [self open:YES];
         } else {
             [self close:YES];
@@ -287,12 +409,6 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
         //手势完成，直接返回
         return;
     }
-    if (translation.x < minOffset || translation.x > maxOffset) {
-        //超出识别区间，直接返回
-        return;
-    }
-    //在识别区间内
-    [self.contentViewController.view.window setCenter:CGPointMake(centerX, self.contentViewController.view.window.center.y)];
     //调用抽屉视图控制器的位移方法
     CGFloat originalCenterX = CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2;
     [self slideDrawerWithXOffset:centerX - originalCenterX];
@@ -314,6 +430,23 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
     if (ratio > 1) {
         ratio = 1;
     }
+    //位移
+    //drawer
+    CGVector realDrawerOffset = CGVectorMake(self.drawerOffset.dx * (1 - ratio), self.drawerOffset.dy * (1 - ratio));
+    CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + realDrawerOffset.dx, self.view.bounds.size.height / 2 + realDrawerOffset.dy);
+    [self.view setCenter:centerPoint];
+    //content
+    [self.contentViewController.view.window setCenter:CGPointMake(CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 + xOffset, self.contentViewController.view.window.center.y)];
+    
+    //形变
+    //drawer
+    CGVector realDrawerInterval = CGVectorMake(1 - self.contentScale.dx, 1 - self.contentScale.dy);
+    CGVector realDrawerScale = CGVectorMake(realDrawerInterval.dx * ratio + self.contentScale.dx, realDrawerInterval.dy * ratio + self.contentScale.dy);
+    self.view.transform = CGAffineTransformMakeScale(realDrawerScale.dx, realDrawerScale.dy);
+    //content
+    CGVector interval = CGVectorMake(1 - self.contentScale.dx, 1 - self.contentScale.dy);
+    CGVector refreshScale = CGVectorMake(interval.dx * (1 - ratio) + self.contentScale.dx, interval.dy * (1 - ratio) + self.contentScale.dy);
+    self.contentViewController.view.window.transform = CGAffineTransformMakeScale(refreshScale.dx, refreshScale.dy);
     if (self.delegate && [self.delegate respondsToSelector:@selector(drawerViewController:openedWithOffsetRatio:)]) {
         [self.delegate drawerViewController:self openedWithOffsetRatio:ratio];
     }
@@ -321,24 +454,6 @@ static const void *SDDrawerCloseSlideKey = @"SDDrawerCloseSlideKey";
 
 @end
 
-
-@implementation SDDrawerViewController (OffsetAndShape)
-
-static const void *SDDrawerContentScaleKey = @"SDDrawerContentScaleKey";
-
-- (void)setContentScale:(CGFloat)contentScale {
-    objc_setAssociatedObject(self, SDDrawerContentScaleKey, [NSNumber numberWithFloat:contentScale], OBJC_ASSOCIATION_COPY_NONATOMIC);
-}
-
-- (CGFloat)contentScale {
-    NSNumber *threshold = objc_getAssociatedObject(self, SDDrawerContentScaleKey);
-    if (!threshold) {
-        return 0;
-    }
-    return [threshold floatValue];
-}
-
-@end
 
 
 @implementation UIViewController (SDDrawer)
@@ -363,11 +478,16 @@ static const void *SDDrawerRenderShadowKey = @"SDDrawerRenderShadowKey";
 - (void)setRenderShadow:(BOOL)renderShadow {
     objc_setAssociatedObject(self, SDDrawerRenderShadowKey, [NSNumber numberWithBool:renderShadow], OBJC_ASSOCIATION_COPY_NONATOMIC);
     if (self.view) {
-        self.view.layer.shadowOffset = CGSizeMake(-5, 0);
-        self.view.layer.shadowColor = [UIColor blackColor].CGColor;
-        self.view.layer.shadowRadius = 10;
-        self.view.layer.shadowOpacity = 0.5;
-        self.view.clipsToBounds = NO;
+        if (renderShadow) {
+            self.view.layer.shadowOffset = CGSizeMake(-5, 0);
+            self.view.layer.shadowColor = [UIColor blackColor].CGColor;
+            self.view.layer.shadowRadius = 10;
+            self.view.layer.shadowOpacity = 0.5;
+            self.view.clipsToBounds = NO;
+        } else {
+            self.view.layer.shadowOpacity = 0;
+            self.view.clipsToBounds = YES;
+        }
     }
 }
 
@@ -415,26 +535,41 @@ static const void *SDDrawerRenderShadowKey = @"SDDrawerRenderShadowKey";
     //最大最小区间
     CGFloat minOffset = 0;
     CGFloat maxOffset = 0;
+    CGFloat revisedOffset = translation.x;
     CGFloat centerX = 0;
     if ([self.drawerViewController isOpened]) {
         //最小偏移量
         minOffset = 0 - CGRectGetMaxX(self.drawerViewController.view.window.bounds) * self.drawerViewController.openRatio;
+        if (revisedOffset < minOffset) {
+            revisedOffset = minOffset;
+        } else if (revisedOffset > maxOffset) {
+            revisedOffset = maxOffset;
+        }
         //新的中心位置X值
-        centerX = CGRectGetMaxX(self.view.window.bounds) / 2 - minOffset + translation.x;
+        centerX = CGRectGetMaxX(self.view.window.bounds) / 2 - minOffset + revisedOffset;
     } else {
         //最大偏移量
         maxOffset = CGRectGetMaxX(self.drawerViewController.view.window.bounds) * self.drawerViewController.openRatio;
+        if (revisedOffset < minOffset) {
+            revisedOffset = minOffset;
+        } else if (revisedOffset > maxOffset) {
+            revisedOffset = maxOffset;
+        }
         //新的中心位置X值
-        centerX =  CGRectGetMaxX(self.view.window.bounds) / 2 + translation.x;
+        centerX =  CGRectGetMaxX(self.view.window.bounds) / 2 + revisedOffset;
     }
+    //位移
+    [self.view.window setCenter:CGPointMake(centerX, self.view.window.center.y)];
+    
     if (sender.state == UIGestureRecognizerStateEnded) {
+        //手势结束
         CGFloat thresholdX = 0;
         if ([self.drawerViewController isOpened]) {
             thresholdX = self.drawerViewController.autoSlideToCloseThreshold * CGRectGetWidth([UIScreen mainScreen].bounds);
         } else {
             thresholdX = self.drawerViewController.autoSlideToOpenThreshold * CGRectGetWidth([UIScreen mainScreen].bounds);
         }
-        if (translation.x >= thresholdX) {
+        if (revisedOffset >= thresholdX) {
             [self.drawerViewController open:YES];
         } else {
             [self.drawerViewController close:YES];
@@ -442,12 +577,6 @@ static const void *SDDrawerRenderShadowKey = @"SDDrawerRenderShadowKey";
         //手势完成，直接返回
         return;
     }
-    if (translation.x < minOffset || translation.x > maxOffset) {
-        //超出识别区间，直接返回
-        return;
-    }
-    //在识别区间内
-    [self.view.window setCenter:CGPointMake(centerX, self.view.window.center.y)];
     //调用抽屉视图控制器的位移方法
     CGFloat originalCenterX = CGRectGetMaxX(self.view.window.bounds) / 2;
     [self.drawerViewController slideDrawerWithXOffset:centerX - originalCenterX];

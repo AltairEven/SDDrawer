@@ -54,7 +54,7 @@
  */
 @interface SDDrawerViewController (OpenClose)
 /**
- *  抽屉打开后显示的百分比，默认0.8
+ *  抽屉打开后显示的比例，0~1，默认0.6
  */
 @property (nonatomic, assign) CGFloat openRatio;
 /**
@@ -69,6 +69,16 @@
  *  滑动手势触发后，自动关闭的临界值，按照屏幕宽度的百分比，默认0.1
  */
 @property (nonatomic, assign) CGFloat autoSlideToCloseThreshold;
+/**
+ *  抽屉打开后，内容视图显示比例，默认(1, 1)，大于1表示放大，小于1表示缩小，必须都大于0
+ */
+@property (nonatomic, assign) CGVector contentScale;
+/**
+ *  抽屉内部视图显示偏移，单位"点"，默认(0, 0)，符合屏幕坐标规则，目前只支持二维
+ *  dx为正表示向右偏移，负表示向左偏移
+ *  dy为正表示向下偏移，负表示向上偏移
+ */
+@property (nonatomic, assign) CGVector drawerOffset;
 
 /**
  *  打开抽屉（只支持内容视图向右）
@@ -82,17 +92,6 @@
  *  @param animated 是否需要动画
  */
 - (void)close:(BOOL)animated;
-
-@end
-
-/**
- *  提供缩放和位移
- */
-@interface SDDrawerViewController (OffsetAndShape)
-/**
- *  抽屉打开后，内容视图显示比例，默认1
- */
-@property (nonatomic, assign) CGFloat contentScale;
 
 @end
 

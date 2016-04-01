@@ -11,25 +11,61 @@
             </connections>
         </placeholder>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
-        <view clearsContextBeforeDrawing="NO" contentMode="scaleToFill" id="i5M-Pr-FkT">
+        <view clearsContextBeforeDrawing="NO" alpha="0.5" contentMode="scaleToFill" id="i5M-Pr-FkT">
             <rect key="frame" x="0.0" y="0.0" width="600" height="600"/>
             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
             <subviews>
-                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" text="这里是抽屉" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="82B-lB-EAW">
-                    <rect key="frame" x="20" y="128" width="118" height="21"/>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="这里是抽屉" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="82B-lB-EAW">
+                    <rect key="frame" x="20" y="128" width="85" height="21"/>
                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
                     <color key="textColor" cocoaTouchSystemColor="darkTextColor"/>
                     <nil key="highlightedColor"/>
                 </label>
-                <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fLk-1F-UtD">
-                    <rect key="frame" x="20" y="59" width="46" height="30"/>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="fLk-1F-UtD">
+                    <rect key="frame" x="20" y="59" width="32" height="30"/>
                     <state key="normal" title="Hide"/>
                     <connections>
                         <action selector="didClickedHideButton:" destination="-1" eventType="touchUpInside" id="7AU-ko-nR7"/>
                     </connections>
                 </button>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="右边" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Key-PK-K0e">
+                    <rect key="frame" x="566" y="290" width="34" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <color key="textColor" cocoaTouchSystemColor="darkTextColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="上边" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="iSI-qq-5y3">
+                    <rect key="frame" x="566" y="26" width="34" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <color key="textColor" cocoaTouchSystemColor="darkTextColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
+                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="下边" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TKU-hD-QcY">
+                    <rect key="frame" x="566" y="579" width="34" height="21"/>
+                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                    <color key="textColor" cocoaTouchSystemColor="darkTextColor"/>
+                    <nil key="highlightedColor"/>
+                </label>
             </subviews>
-            <color key="backgroundColor" red="0.6531675168501917" green="0.69861009221456039" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+            <color key="backgroundColor" red="0.65316751689999997" green="0.69861009220000003" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+            <constraints>
+                <constraint firstAttribute="bottom" secondItem="TKU-hD-QcY" secondAttribute="bottom" id="589-sh-ZZs"/>
+                <constraint firstItem="82B-lB-EAW" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" constant="20" id="Cd5-DE-0YX"/>
+                <constraint firstAttribute="trailing" secondItem="TKU-hD-QcY" secondAttribute="trailing" id="KJU-vi-lyu"/>
+                <constraint firstItem="Key-PK-K0e" firstAttribute="top" secondItem="iSI-qq-5y3" secondAttribute="bottom" constant="284" id="P11-qd-dyQ"/>
+                <constraint firstAttribute="trailing" secondItem="iSI-qq-5y3" secondAttribute="trailing" id="T0T-Hx-d2W"/>
+                <constraint firstAttribute="trailing" secondItem="Key-PK-K0e" secondAttribute="trailing" id="aw3-xU-2qP"/>
+                <constraint firstItem="iSI-qq-5y3" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" constant="26" id="cSY-UG-Wh2"/>
+                <constraint firstItem="fLk-1F-UtD" firstAttribute="top" secondItem="i5M-Pr-FkT" secondAttribute="top" constant="59" id="eTP-Ml-KHz"/>
+                <constraint firstItem="82B-lB-EAW" firstAttribute="top" secondItem="fLk-1F-UtD" secondAttribute="bottom" constant="39" id="jYq-LH-HH7"/>
+                <constraint firstItem="fLk-1F-UtD" firstAttribute="leading" secondItem="i5M-Pr-FkT" secondAttribute="leading" constant="20" id="rWk-rq-u0O"/>
+                <constraint firstItem="Key-PK-K0e" firstAttribute="centerY" secondItem="i5M-Pr-FkT" secondAttribute="centerY" id="vFX-94-gmB"/>
+            </constraints>
+            <variation key="default">
+                <mask key="constraints">
+                    <exclude reference="P11-qd-dyQ"/>
+                </mask>
+            </variation>
         </view>
     </objects>
 </document>

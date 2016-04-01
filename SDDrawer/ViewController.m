@@ -40,20 +40,14 @@
     [self.drawerVC setBackgroundView:bgImageView];
     self.drawerVC.delegate = self;
     self.renderShadow = YES;
+    self.drawerVC.contentScale = CGVectorMake(0.8, 0.8);
+    self.drawerVC.drawerOffset = CGVectorMake(-200, 0);
 }
 
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     [self activateSlideGesture:YES];
-    
-    [self.tableView setBackgroundColor:[UIColor yellowColor]];
-    
-    self.tableView.layer.shadowOffset = CGSizeMake(-10, 0);
-    self.tableView.layer.shadowColor = [UIColor blackColor].CGColor;
-    self.tableView.layer.shadowRadius = 3;
-    [self.tableView.layer setShadowOpacity:1.0];
-    [self.tableView setClipsToBounds:NO];
 }
 
 - (IBAction)showDrawer:(id)sender {
