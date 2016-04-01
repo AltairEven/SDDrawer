@@ -33,14 +33,6 @@
 */
 @property (nonatomic, strong) UIViewController *contentViewController;
 /**
- *  抽屉打开后显示的百分比，默认0.8
- */
-@property (nonatomic, assign) CGFloat openRatio;
-/**
- *  当前抽屉打开状态
- */
-@property (nonatomic, readonly) BOOL isClosed;
-/**
  *  SDDrawerViewControllerDelegate
  */
 @property (nonatomic, weak) id<SDDrawerViewControllerDelegate> delegate;
@@ -53,6 +45,31 @@
  *  @return SDDrawerViewController实例
  */
 - (instancetype)initWithContentViewController:(UIViewController *)controller;
+
+@end
+
+
+/**
+ *  提供抽屉开启或者关闭
+ */
+@interface SDDrawerViewController (OpenClose)
+/**
+ *  抽屉打开后显示的百分比，默认0.8
+ */
+@property (nonatomic, assign) CGFloat openRatio;
+/**
+ *  当前抽屉打开状态
+ */
+@property (nonatomic, readonly) BOOL isOpened;
+/**
+ *  滑动手势触发后，自动展开全部的临界值，按照屏幕宽度的百分比，默认0.2
+ */
+@property (nonatomic, assign) CGFloat autoSlideToOpenThreshold;
+/**
+ *  滑动手势触发后，自动关闭的临界值，按照屏幕宽度的百分比，默认0.1
+ */
+@property (nonatomic, assign) CGFloat autoSlideToCloseThreshold;
+
 /**
  *  打开抽屉（只支持内容视图向右）
  *
@@ -65,27 +82,6 @@
  *  @param animated 是否需要动画
  */
 - (void)close:(BOOL)animated;
-
-@end
-
-/**
- *  提供滑动开启或者关闭
- */
-@interface SDDrawerViewController (GestureControl)
-/**
- *  滑动手势触发后，自动展开全部的临界值，按照屏幕宽度的百分比，默认0.2
- */
-@property (nonatomic, assign) CGFloat autoSlideToOpenThreshold;
-/**
- *  滑动手势触发后，自动关闭的临界值，按照屏幕宽度的百分比，默认0.1
- */
-@property (nonatomic, assign) CGFloat autoSlideToCloseThreshold;
-/**
- *  滑动抽屉
- *
- *  @param xOffset 距离原始关闭状态的X轴偏移量
- */
-- (void)slideDrawerWithXOffset:(CGFloat)xOffset;
 
 @end
 
@@ -104,11 +100,15 @@
 
 @interface UIViewController (SDDrawer) <UIGestureRecognizerDelegate>
 /**
+ *  是否渲染阴影，在viewDidLoad后调用
+ */
+@property (nonatomic, assign) BOOL renderShadow;
+/**
  *  管理该UIViewController的DrawerViewController
  */
 @property (nonatomic, weak) SDDrawerViewController *drawerViewController;
 /**
- *  激活或关闭抽屉滑动的手势
+ *  激活或关闭抽屉滑动的手势，在viewDidAppear后调用
  *
  *  @param activated 激活或关闭
  */

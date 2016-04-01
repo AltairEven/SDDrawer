@@ -13,6 +13,7 @@
 @interface ViewController () <SDDrawerViewControllerDelegate>
 
 @property (weak, nonatomic) IBOutlet UIButton *showButton;
+@property (weak, nonatomic) IBOutlet UITableView *tableView;
 @property (nonatomic, strong) SDDrawerViewController *drawerVC;
 
 - (IBAction)showDrawer:(id)sender;
@@ -38,12 +39,21 @@
     [bgImageView setImage:bgImage];
     [self.drawerVC setBackgroundView:bgImageView];
     self.drawerVC.delegate = self;
+    self.renderShadow = YES;
 }
 
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     [self activateSlideGesture:YES];
+    
+    [self.tableView setBackgroundColor:[UIColor yellowColor]];
+    
+    self.tableView.layer.shadowOffset = CGSizeMake(-10, 0);
+    self.tableView.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.tableView.layer.shadowRadius = 3;
+    [self.tableView.layer setShadowOpacity:1.0];
+    [self.tableView setClipsToBounds:NO];
 }
 
 - (IBAction)showDrawer:(id)sender {
@@ -55,11 +65,7 @@
 #pragma mark SDDrawerViewControllerDelegate
 
 - (void)drawerViewController:(SDDrawerViewController *)controller openedWithOffsetRatio:(CGFloat)ratio {
-    if (ratio == 1) {
-        [self.showButton setHidden:YES];
-    } else if (ratio == 0) {
-        [self.showButton setHidden:NO];
-    }
+    [self.showButton setAlpha:1 - ratio];
 }
 
 - (void)didReceiveMemoryWarning {
