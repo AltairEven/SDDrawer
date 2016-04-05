@@ -54,7 +54,7 @@
  */
 @interface SDDrawerViewController (OpenClose)
 /**
- *  抽屉打开后显示的比例，0~1，默认0.6
+ *  抽屉打开后显示的比例，0~1，默认0.7
  */
 @property (nonatomic, assign) CGFloat openRatio;
 /**

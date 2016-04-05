@@ -9,7 +9,7 @@
 #import "SDDrawerViewController.h"
 #import <objc/runtime.h>
 
-#define DEFAULT_OPEN_RATIO (0.6)
+#define DEFAULT_OPEN_RATIO (0.7)
 #define DEFAULT_OPEN_SLIDETHRESHOLD (0.2)
 #define DEFAULT_CLOSE_SLIDETHRESHOLD (0.1)
 #define DEFAULT_CONTENT_SCALE (CGVectorMake(1, 1))
@@ -80,6 +80,7 @@
         [self.hostWindow sendSubviewToBack:_backgroundView];
     }
 }
+
 
 #pragma mark Public methods
 
@@ -159,9 +160,8 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
     }
     objc_setAssociatedObject(self, SDDrawerOpenRatioKey, [NSNumber numberWithFloat:openRatio], OBJC_ASSOCIATION_COPY_NONATOMIC);
     if (self.view) {
-        //根据open ratio和scale来计算drawer内容的宽度
-        CGFloat scaleOffset = (1 - self.contentScale.dx) * self.contentViewController.view.window.bounds.size.width / 2;
-        CGFloat width = self.view.frame.size.width * openRatio + scaleOffset;
+        //根据open ratio来计算drawer内容的宽度
+        CGFloat width = self.view.frame.size.width * openRatio;
         CGRect frame = CGRectMake(self.view.frame.origin.x, self.view.frame.origin.y, width, [UIScreen mainScreen].bounds.size.height);
         [self.view setFrame:frame];
     }
@@ -235,6 +235,11 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
     return [scale CGVectorValue];
 }
 
+
+- (CGVector)drawerScale {
+    return self.contentScale;
+}
+
 - (void)setDrawerOffset:(CGVector)drawerOffset {
     objc_setAssociatedObject(self, SDDrawerOffsetKey, [NSValue valueWithCGVector:drawerOffset], OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
@@ -273,25 +278,28 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
 
 - (void)resetDrawerOffset:(BOOL)open {
     if (open) {
-        [self.view setCenter:CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2)];
         self.view.transform = CGAffineTransformMakeScale(1, 1);
+        
+        [self.view setCenter:CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2)];
     } else {
-        CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + self.drawerOffset.dx, self.view.bounds.size.height / 2 + self.drawerOffset.dy);
-        [self.view setCenter:centerPoint];
         self.view.transform = CGAffineTransformMakeScale(self.contentScale.dx, self.contentScale.dy);
+        
+        CGVector realOffset = [self drawerRealOffset];
+        CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + realOffset.dx, self.view.bounds.size.height / 2 + realOffset.dy);
+        [self.view setCenter:centerPoint];
     }
 }
 
 - (void)resetContent:(BOOL)open {
     if (open) {
-        CGRect screenBounds = [UIScreen mainScreen].bounds;
-        CGFloat drawerShowingWidth = screenBounds.size.width * self.openRatio;
-        CGPoint centerPoint = CGPointMake(screenBounds.size.width / 2 + drawerShowingWidth, screenBounds.size.height / 2);
-        [self.contentViewController.view.window setCenter:centerPoint];
         self.contentViewController.view.window.transform = CGAffineTransformMakeScale(self.contentScale.dx, self.contentScale.dy);
+        
+        CGPoint centerPoint = CGPointMake([UIScreen mainScreen].bounds.size.width / 2 + [self contentOffset], [UIScreen mainScreen].bounds.size.height / 2);
+        [self.contentViewController.view.window setCenter:centerPoint];
     } else {
-        [self.contentViewController.view.window setCenter:CGPointMake([UIScreen mainScreen].bounds.size.width / 2, [UIScreen mainScreen].bounds.size.height / 2)];
         self.contentViewController.view.window.transform = CGAffineTransformMakeScale(1, 1);
+        
+        [self.contentViewController.view.window setCenter:CGPointMake([UIScreen mainScreen].bounds.size.width / 2, [UIScreen mainScreen].bounds.size.height / 2)];
     }
 }
 
@@ -361,6 +369,27 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
     [self.coverView setHidden:YES];
 }
 
+/**
+ *  抽屉打开后，内容视图的偏移量
+ *
+ *  @return 偏移量
+ */
+- (CGFloat)contentOffset {
+    CGFloat drawerShowingWidth = [UIScreen mainScreen].bounds.size.width * self.openRatio;
+    //需要减去由于缩放导致的frame变化
+    CGFloat scaleOffset = (1 - self.contentScale.dx) * self.contentViewController.view.window.bounds.size.width / 2;
+    CGFloat offset = drawerShowingWidth - scaleOffset;
+    return offset;
+}
+
+- (CGVector)drawerRealOffset {
+    //计算drawer实际的偏移量，需要减去由于缩放导致的frame变化
+    CGFloat scaleOffset = (self.contentScale.dx - 1) * self.view.window.bounds.size.width / 2;
+    CGFloat xOffset = self.drawerOffset.dx - scaleOffset;
+    CGVector realOffset = CGVectorMake(xOffset, self.drawerOffset.dy);
+    return realOffset;
+}
+
 #pragma mark Gesture
 
 - (void)panGestureRecognized:(UIPanGestureRecognizer *)sender {
@@ -373,7 +402,7 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
     CGFloat centerX = 0;
     if ([self isOpened]) {
         //最小偏移量
-        minOffset = 0 - CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+        minOffset = 0 - [self contentOffset];
         if (revisedOffset < minOffset) {
             revisedOffset = minOffset;
         } else if (revisedOffset > maxOffset) {
@@ -383,7 +412,7 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
         centerX = CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 - minOffset + revisedOffset;
     } else {
         //最大偏移量
-        maxOffset = CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+        maxOffset = [self contentOffset];
         if (revisedOffset < minOffset) {
             revisedOffset = minOffset;
         } else if (revisedOffset > maxOffset) {
@@ -422,7 +451,8 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
 
 
 - (void)slideDrawerWithXOffset:(CGFloat)xOffset {
-    CGFloat totalOffset = CGRectGetMaxX(self.view.window.bounds) * self.openRatio;
+//    NSLog(@"%f", xOffset);
+    CGFloat totalOffset = [self contentOffset];
     CGFloat ratio = xOffset / totalOffset;
     if (ratio < 0) {
         ratio = 0;
@@ -430,26 +460,30 @@ static const void *SDDrawerOffsetKey = @"SDDrawerOffsetKey";
     if (ratio > 1) {
         ratio = 1;
     }
-    //位移
+    //先形变
     //drawer
-    CGVector realDrawerOffset = CGVectorMake(self.drawerOffset.dx * (1 - ratio), self.drawerOffset.dy * (1 - ratio));
-    CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + realDrawerOffset.dx, self.view.bounds.size.height / 2 + realDrawerOffset.dy);
-    [self.view setCenter:centerPoint];
+    CGVector drawerInterval = CGVectorMake(1 - [self drawerScale].dx, 1 - [self drawerScale].dy);
+    CGVector drawerScale = CGVectorMake(drawerInterval.dx * ratio + [self drawerScale].dx, drawerInterval.dy * ratio + [self drawerScale].dy);
+    self.view.transform = CGAffineTransformMakeScale(drawerScale.dx, drawerScale.dy);
     //content
-    [self.contentViewController.view.window setCenter:CGPointMake(CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 + xOffset, self.contentViewController.view.window.center.y)];
-    
-    //形变
-    //drawer
-    CGVector realDrawerInterval = CGVectorMake(1 - self.contentScale.dx, 1 - self.contentScale.dy);
-    CGVector realDrawerScale = CGVectorMake(realDrawerInterval.dx * ratio + self.contentScale.dx, realDrawerInterval.dy * ratio + self.contentScale.dy);
-    self.view.transform = CGAffineTransformMakeScale(realDrawerScale.dx, realDrawerScale.dy);
-    //content
-    CGVector interval = CGVectorMake(1 - self.contentScale.dx, 1 - self.contentScale.dy);
-    CGVector refreshScale = CGVectorMake(interval.dx * (1 - ratio) + self.contentScale.dx, interval.dy * (1 - ratio) + self.contentScale.dy);
-    self.contentViewController.view.window.transform = CGAffineTransformMakeScale(refreshScale.dx, refreshScale.dy);
+    CGVector contInterval = CGVectorMake(1 - self.contentScale.dx, 1 - self.contentScale.dy);
+    CGVector contScale = CGVectorMake(contInterval.dx * (1 - ratio) + self.contentScale.dx, contInterval.dy * (1 - ratio) + self.contentScale.dy);
+    self.contentViewController.view.window.transform = CGAffineTransformMakeScale(contScale.dx, contScale.dy);
     if (self.delegate && [self.delegate respondsToSelector:@selector(drawerViewController:openedWithOffsetRatio:)]) {
         [self.delegate drawerViewController:self openedWithOffsetRatio:ratio];
     }
+    //再位移
+    //drawer
+    //实际位移+形变后的frame差值=理论总位移*ratio
+    CGVector realDrawerOffset = [self drawerRealOffset];
+    CGFloat assumeXOffset = realDrawerOffset.dx * (1 - ratio);//理论上的总位移
+//    CGFloat drawerScaleOffset = (drawerScale.dx - [self drawerScale].dx) * self.view.window.bounds.size.width / 2;//形变后的frame差值
+//    CGFloat drawerScaleOffset = 0;
+    CGVector currentDrawerOffset = CGVectorMake(assumeXOffset, realDrawerOffset.dy);
+    CGPoint centerPoint = CGPointMake(self.view.bounds.size.width / 2 + currentDrawerOffset.dx, self.view.bounds.size.height / 2 + currentDrawerOffset.dy);
+    [self.view setCenter:centerPoint];
+    //content
+    [self.contentViewController.view.window setCenter:CGPointMake(CGRectGetMaxX(self.contentViewController.view.window.bounds) / 2 + xOffset, self.contentViewController.view.window.center.y)];
 }
 
 @end
@@ -539,7 +573,7 @@ static const void *SDDrawerRenderShadowKey = @"SDDrawerRenderShadowKey";
     CGFloat centerX = 0;
     if ([self.drawerViewController isOpened]) {
         //最小偏移量
-        minOffset = 0 - CGRectGetMaxX(self.drawerViewController.view.window.bounds) * self.drawerViewController.openRatio;
+        minOffset = 0 - [self.drawerViewController contentOffset];
         if (revisedOffset < minOffset) {
             revisedOffset = minOffset;
         } else if (revisedOffset > maxOffset) {
@@ -549,7 +583,7 @@ static const void *SDDrawerRenderShadowKey = @"SDDrawerRenderShadowKey";
         centerX = CGRectGetMaxX(self.view.window.bounds) / 2 - minOffset + revisedOffset;
     } else {
         //最大偏移量
-        maxOffset = CGRectGetMaxX(self.drawerViewController.view.window.bounds) * self.drawerViewController.openRatio;
+        maxOffset = [self.drawerViewController contentOffset];
         if (revisedOffset < minOffset) {
             revisedOffset = minOffset;
         } else if (revisedOffset > maxOffset) {
